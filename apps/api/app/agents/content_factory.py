@@ -8,6 +8,13 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.agents.llm_service import LLMService, create_llm_service
+from app.rules.claim_rules import (
+    BANNED_CLAIMS,
+    calculate_review_score,
+    detect_claim_risks,
+    map_score_to_status,
+    suggest_replacements,
+)
 
 DEFAULT_PLATFORMS = ["TikTok", "Facebook", "LINE"]
 PRODUCT_FACTS = {
@@ -17,7 +24,7 @@ PRODUCT_FACTS = {
     "carton": "50 แพ็กต่อกล่อง",
 }
 SAFE_CLAIMS = ["เนียนนุ่ม", "สะอาด", "ฝุ่นน้อย", "ไม่ฟุ้งง่าย"]
-FORBIDDEN_CLAIMS = ["ไร้ฝุ่น 100%", "ไม่ก่อภูมิแพ้", "ฆ่าเชื้อโรค", "ปลอดภัยที่สุด"]
+FORBIDDEN_CLAIMS = BANNED_CLAIMS
 PASSING_REVIEW_STATUSES = {"ready_to_approve"}
 
 CAMPAIGN_PLANNER_SCHEMA: dict[str, Any] = {
@@ -324,15 +331,37 @@ def generate_visual_briefs(state: ContentFactoryState) -> dict[str, Any]:
 
 
 def review_content(state: ContentFactoryState) -> dict[str, Any]:
+    generated_content = state.get("generated_content", [])
+    rule_score = calculate_review_score(generated_content)
+    rule_status = map_score_to_status(rule_score)
+    content_blob = " ".join(
+        [
+            item.get("body", "")
+            + " "
+            + item.get("metadata", {}).get("caption", "")
+            + " "
+            + item.get("metadata", {}).get("hook", "")
+            + " "
+            + item.get("metadata", {}).get("cta", "")
+            for item in generated_content
+        ]
+    )
+    claim_risks = detect_claim_risks(content_blob)
+    replacement_suggestions = suggest_replacements(content_blob)
+
     result = _llm(state).generate_json(
         agent_name="reviewer",
         variables={
             "language": state.get("language", "th"),
-            "generated_content": state.get("generated_content", []),
+            "generated_content": generated_content,
             "visual_briefs": state.get("visual_briefs", []),
             "product_facts": state.get("product_facts", PRODUCT_FACTS),
             "safe_claims": state.get("safe_claims", SAFE_CLAIMS),
             "forbidden_claims": state.get("forbidden_claims", FORBIDDEN_CLAIMS),
+            "deterministic_rule_score": rule_score,
+            "deterministic_rule_status": rule_status,
+            "claim_risks": claim_risks,
+            "replacement_suggestions": replacement_suggestions,
             "force_always_fail": state.get("force_always_fail", False),
         },
         response_schema=REVIEWER_SCHEMA,
@@ -341,21 +370,8 @@ def review_content(state: ContentFactoryState) -> dict[str, Any]:
 
     review = result.data
     feedback: list[str] = list(review.get("issues", []))
-    forbidden_claims = state.get("forbidden_claims", FORBIDDEN_CLAIMS)
-    content_blob = " ".join(
-        [
-            item.get("body", "")
-            + " "
-            + item.get("metadata", {}).get("caption", "")
-            + " "
-            + item.get("metadata", {}).get("hook", "")
-            for item in state.get("generated_content", [])
-        ]
-    )
-
-    risky_claims = [claim for claim in forbidden_claims if claim in content_blob]
-    for claim in risky_claims:
-        message = f"พบคำกล่าวอ้างต้องห้าม '{claim}'"
+    for risk in claim_risks:
+        message = risk["message"]
         if message not in feedback:
             feedback.append(message)
 
@@ -365,17 +381,26 @@ def review_content(state: ContentFactoryState) -> dict[str, Any]:
             feedback.append(message)
 
     status = review.get("status", "revision_required")
-    if risky_claims and status in PASSING_REVIEW_STATUSES:
+    if rule_status != "ready_to_approve":
+        status = rule_status
+    elif claim_risks and status in PASSING_REVIEW_STATUSES:
         status = "revision_required"
-    review_passed = status in PASSING_REVIEW_STATUSES and not feedback
+    score = min(int(review.get("score", 0)), rule_score)
+    review_passed = status in PASSING_REVIEW_STATUSES and not feedback and not claim_risks
     updates = {
         "review_passed": review_passed,
         "review_feedback": feedback or [review.get("revision_notes") or "ผ่านการตรวจคำกล่าวอ้างเบื้องต้น"],
         "review_result": {
             "status": status,
-            "score": review.get("score", 0),
+            "score": score,
             "issues": feedback,
             "revision_notes": review.get("revision_notes", ""),
+            "rule_engine": {
+                "score": rule_score,
+                "status": rule_status,
+                "claim_risks": claim_risks,
+                "replacement_suggestions": replacement_suggestions,
+            },
         },
     }
     return _record_step(state, "review_content", updates)
@@ -384,9 +409,12 @@ def review_content(state: ContentFactoryState) -> dict[str, Any]:
 def rewrite_content(state: ContentFactoryState) -> dict[str, Any]:
     replacements = {
         "ไร้ฝุ่น 100%": "ฝุ่นน้อย",
-        "ไม่ก่อภูมิแพ้": "อ่อนโยนต่อการใช้งานทั่วไป",
-        "ฆ่าเชื้อโรค": "สะอาด",
-        "ปลอดภัยที่สุด": "เหมาะกับการใช้งานประจำวัน",
+        "ไม่ก่อภูมิแพ้": "เหมาะสำหรับใช้ในชีวิตประจำวัน",
+        "ฆ่าเชื้อโรค": "",
+        "ปลอดภัยที่สุด": "สะอาด น่าใช้",
+        "medical grade": "",
+        "antibacterial": "",
+        "hypoallergenic": "เหมาะสำหรับใช้ในชีวิตประจำวัน",
     }
     rewritten = []
     for item in state.get("generated_content", []):

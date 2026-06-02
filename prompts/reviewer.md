@@ -19,6 +19,18 @@ Generated content:
 Visual briefs:
 {{visual_briefs}}
 
+Deterministic rule score:
+{{deterministic_rule_score}}
+
+Deterministic rule status:
+{{deterministic_rule_status}}
+
+Detected claim risks:
+{{claim_risks}}
+
+Replacement suggestions:
+{{replacement_suggestions}}
+
 Return only JSON in this exact shape:
 {
   "status": "ready_to_approve | minor_revision_suggested | revision_required | reject",

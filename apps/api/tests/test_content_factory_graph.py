@@ -79,4 +79,4 @@ def test_reviewer_cannot_pass_risky_claims() -> None:
 
     assert result["review_passed"] is False
     assert result["review_result"]["status"] == "revision_required"
-    assert "พบคำกล่าวอ้างต้องห้าม 'ไร้ฝุ่น 100%'" in result["review_feedback"]
+    assert "พบคำกล่าวอ้างแบบเด็ดขาดที่ยังไม่มีหลักฐานรองรับ: ไร้ฝุ่น 100%" in result["review_feedback"]
