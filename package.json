@@ -1,0 +1,12 @@
+{
+  "name": "soclean-agentic-ai-content-system",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "web:typecheck": "npm --workspace apps/web run typecheck",
+    "web:dev": "npm --workspace apps/web run dev",
+    "web:build": "npm --workspace apps/web run build"
+  }
+}
