@@ -167,6 +167,22 @@ def test_generate_content_endpoint_creates_content_items() -> None:
         agent_runs = list(db.scalars(select(models.AgentRun)).all())
         assert len(agent_runs) == 1
         assert agent_runs[0].status == "completed"
+        prompt_versions = list(db.scalars(select(models.PromptVersion)).all())
+        assert {version.agent_name for version in prompt_versions} == {
+            "campaign_planner",
+            "copywriter",
+            "visual_brief",
+            "reviewer",
+        }
+        usage_logs = list(db.scalars(select(models.LLMUsageLog)).all())
+        assert len(usage_logs) == 4
+        assert {log.agent_name for log in usage_logs} == {
+            "campaign_planner",
+            "copywriter",
+            "visual_brief",
+            "reviewer",
+        }
+        assert all(log.model_name == "deterministic-mock" for log in usage_logs)
         steps = list(db.scalars(select(models.AgentRunStep).order_by(models.AgentRunStep.step_order)).all())
         assert [step.step_name for step in steps] == [
             "load_brand_memory",

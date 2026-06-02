@@ -141,3 +141,40 @@ class AgentRunStep(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     agent_run: Mapped[AgentRun] = relationship(back_populates="steps")
+
+
+class PromptVersion(Base):
+    __tablename__ = "prompt_versions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    agent_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String, nullable=False, default="v1")
+    content_hash: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    usage_logs: Mapped[list["LLMUsageLog"]] = relationship(back_populates="prompt_version")
+
+
+class LLMUsageLog(Base):
+    __tablename__ = "llm_usage_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    agent_run_id: Mapped[str | None] = mapped_column(ForeignKey("agent_runs.id", ondelete="SET NULL"), index=True)
+    campaign_id: Mapped[str | None] = mapped_column(ForeignKey("campaigns.id", ondelete="SET NULL"), index=True)
+    prompt_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("prompt_versions.id", ondelete="SET NULL"),
+        index=True,
+    )
+    agent_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False, default="mock")
+    model_name: Mapped[str] = mapped_column(String, nullable=False)
+    prompt_tokens: Mapped[int | None] = mapped_column(Integer)
+    completion_tokens: Mapped[int | None] = mapped_column(Integer)
+    total_tokens: Mapped[int | None] = mapped_column(Integer)
+    raw_response_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    agent_run: Mapped[AgentRun | None] = relationship()
+    campaign: Mapped[Campaign | None] = relationship()
+    prompt_version: Mapped[PromptVersion | None] = relationship(back_populates="usage_logs")

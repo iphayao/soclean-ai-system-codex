@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.agents.llm_service import LLMService, create_llm_service
 
 DEFAULT_PLATFORMS = ["TikTok", "Facebook", "LINE"]
 PRODUCT_FACTS = {
@@ -17,6 +18,103 @@ PRODUCT_FACTS = {
 }
 SAFE_CLAIMS = ["เนียนนุ่ม", "สะอาด", "ฝุ่นน้อย", "ไม่ฟุ้งง่าย"]
 FORBIDDEN_CLAIMS = ["ไร้ฝุ่น 100%", "ไม่ก่อภูมิแพ้", "ฆ่าเชื้อโรค", "ปลอดภัยที่สุด"]
+PASSING_REVIEW_STATUSES = {"ready_to_approve"}
+
+CAMPAIGN_PLANNER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["plan"],
+    "properties": {
+        "plan": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["platform", "content_type", "pillar", "angle"],
+                "properties": {
+                    "platform": {"type": "string", "enum": DEFAULT_PLATFORMS},
+                    "content_type": {"type": "string"},
+                    "pillar": {"type": "string"},
+                    "angle": {"type": "string"},
+                },
+            },
+        }
+    },
+}
+
+COPYWRITER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "platform",
+                    "content_type",
+                    "pillar",
+                    "angle",
+                    "hook",
+                    "body",
+                    "caption",
+                    "cta",
+                    "hashtags",
+                ],
+                "properties": {
+                    "platform": {"type": "string", "enum": DEFAULT_PLATFORMS},
+                    "content_type": {"type": "string"},
+                    "pillar": {"type": "string"},
+                    "angle": {"type": "string"},
+                    "hook": {"type": "string"},
+                    "body": {"type": "string"},
+                    "caption": {"type": "string"},
+                    "cta": {"type": "string"},
+                    "hashtags": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        }
+    },
+}
+
+VISUAL_BRIEF_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["briefs"],
+    "properties": {
+        "briefs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["platform", "brief", "shot_list", "text_overlay"],
+                "properties": {
+                    "platform": {"type": "string", "enum": DEFAULT_PLATFORMS},
+                    "brief": {"type": "string"},
+                    "shot_list": {"type": "array", "items": {"type": "string"}},
+                    "text_overlay": {"type": "string"},
+                },
+            },
+        }
+    },
+}
+
+REVIEWER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["status", "score", "issues", "revision_notes"],
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["ready_to_approve", "minor_revision_suggested", "revision_required", "reject"],
+        },
+        "score": {"type": "number"},
+        "issues": {"type": "array", "items": {"type": "string"}},
+        "revision_notes": {"type": "string"},
+    },
+}
 
 
 class ContentFactoryState(TypedDict, total=False):
@@ -36,17 +134,34 @@ class ContentFactoryState(TypedDict, total=False):
     visual_briefs: list[dict[str, Any]]
     review_passed: bool
     review_feedback: list[str]
+    review_result: dict[str, Any]
     retry_count: int
     max_retries: int
     saved_content_item_ids: list[str]
     db: Session
+    llm_service: LLMService
     step_index: int
     force_initial_review_failure: bool
     force_always_fail: bool
 
 
 def _state_without_db(state: ContentFactoryState) -> dict[str, Any]:
-    return {key: value for key, value in state.items() if key != "db"}
+    return {key: value for key, value in state.items() if key not in {"db", "llm_service"}}
+
+
+def _llm(state: ContentFactoryState) -> LLMService:
+    service = state.get("llm_service")
+    if service is None:
+        service = create_llm_service()
+    return service
+
+
+def _llm_context(state: ContentFactoryState) -> dict[str, Any]:
+    return {
+        "db": state.get("db"),
+        "campaign_id": state.get("campaign_id"),
+        "agent_run_id": state.get("agent_run_id"),
+    }
 
 
 def _record_step(state: ContentFactoryState, step_name: str, updates: dict[str, Any]) -> dict[str, Any]:
@@ -121,42 +236,60 @@ def generate_content_strategy(state: ContentFactoryState) -> dict[str, Any]:
 
 
 def generate_campaign_plan(state: ContentFactoryState) -> dict[str, Any]:
-    platforms = state.get("platforms", DEFAULT_PLATFORMS)
-    plan = [
-        {
-            "platform": platform,
-            "format": "short_video" if platform == "TikTok" else "social_post",
-            "angle": f"แนะนำจุดเด่น SoClean สำหรับ {platform}",
-        }
-        for platform in platforms
-    ]
+    result = _llm(state).generate_json(
+        agent_name="campaign_planner",
+        variables={
+            "language": state.get("language", "th"),
+            "platforms": state.get("platforms", DEFAULT_PLATFORMS),
+            "brand_memory": state.get("brand_memory", {}),
+            "customer_insights": state.get("customer_insights", []),
+            "content_strategy": state.get("content_strategy", {}),
+            "product_facts": state.get("product_facts", PRODUCT_FACTS),
+            "safe_claims": state.get("safe_claims", SAFE_CLAIMS),
+            "forbidden_claims": state.get("forbidden_claims", FORBIDDEN_CLAIMS),
+        },
+        response_schema=CAMPAIGN_PLANNER_SCHEMA,
+        **_llm_context(state),
+    )
+    plan = result.data.get("plan", [])
     return _record_step(state, "generate_campaign_plan", {"campaign_plan": plan})
 
 
 def generate_content(state: ContentFactoryState) -> dict[str, Any]:
-    plan = state.get("campaign_plan", [])
-    fact_line = " ".join(PRODUCT_FACTS.values())
-    safe_line = " ".join(state.get("safe_claims", SAFE_CLAIMS))
-    inject_forbidden = state.get("force_initial_review_failure", False) and state.get("retry_count", 0) == 0
+    result = _llm(state).generate_json(
+        agent_name="copywriter",
+        variables={
+            "language": state.get("language", "th"),
+            "campaign_plan": state.get("campaign_plan", []),
+            "brand_memory": state.get("brand_memory", {}),
+            "content_strategy": state.get("content_strategy", {}),
+            "product_facts": state.get("product_facts", PRODUCT_FACTS),
+            "safe_claims": state.get("safe_claims", SAFE_CLAIMS),
+            "forbidden_claims": state.get("forbidden_claims", FORBIDDEN_CLAIMS),
+            "retry_count": state.get("retry_count", 0),
+            "force_initial_review_failure": state.get("force_initial_review_failure", False),
+        },
+        response_schema=COPYWRITER_SCHEMA,
+        **_llm_context(state),
+    )
 
     generated = []
-    for item in plan:
+    for item in result.data.get("items", []):
         platform = item["platform"]
-        body = (
-            f"SoClean ทิชชู่ {fact_line} ให้สัมผัส{safe_line} "
-            f"เหมาะกับการใช้งานประจำวันบน {platform}"
-        )
-        if inject_forbidden:
-            body = f"{body} ไร้ฝุ่น 100%"
         generated.append(
             {
-                "title": f"SoClean สำหรับ {platform}",
+                "title": item["hook"],
                 "channel": platform,
-                "format": item["format"],
-                "body": body,
+                "format": item["content_type"],
+                "body": item["body"],
                 "metadata": {
                     "language": state.get("language", "th"),
                     "angle": item["angle"],
+                    "pillar": item["pillar"],
+                    "hook": item["hook"],
+                    "caption": item["caption"],
+                    "cta": item["cta"],
+                    "hashtags": item["hashtags"],
                     "retry_count": state.get("retry_count", 0),
                 },
             }
@@ -166,32 +299,84 @@ def generate_content(state: ContentFactoryState) -> dict[str, Any]:
 
 
 def generate_visual_briefs(state: ContentFactoryState) -> dict[str, Any]:
+    result = _llm(state).generate_json(
+        agent_name="visual_brief",
+        variables={
+            "language": state.get("language", "th"),
+            "generated_content": state.get("generated_content", []),
+            "brand_memory": state.get("brand_memory", {}),
+            "safe_claims": state.get("safe_claims", SAFE_CLAIMS),
+            "forbidden_claims": state.get("forbidden_claims", FORBIDDEN_CLAIMS),
+        },
+        response_schema=VISUAL_BRIEF_SCHEMA,
+        **_llm_context(state),
+    )
     briefs = [
         {
-            "channel": item["channel"],
-            "brief": "ภาพแพ็กสินค้า SoClean บนพื้นหลังสะอาด พร้อมข้อความสั้นเรื่องเนียนนุ่มและฝุ่นน้อย",
+            "channel": item["platform"],
+            "brief": item["brief"],
+            "shot_list": item["shot_list"],
+            "text_overlay": item["text_overlay"],
         }
-        for item in state.get("generated_content", [])
+        for item in result.data.get("briefs", [])
     ]
     return _record_step(state, "generate_visual_briefs", {"visual_briefs": briefs})
 
 
 def review_content(state: ContentFactoryState) -> dict[str, Any]:
-    feedback: list[str] = []
-    forbidden_claims = state.get("forbidden_claims", FORBIDDEN_CLAIMS)
+    result = _llm(state).generate_json(
+        agent_name="reviewer",
+        variables={
+            "language": state.get("language", "th"),
+            "generated_content": state.get("generated_content", []),
+            "visual_briefs": state.get("visual_briefs", []),
+            "product_facts": state.get("product_facts", PRODUCT_FACTS),
+            "safe_claims": state.get("safe_claims", SAFE_CLAIMS),
+            "forbidden_claims": state.get("forbidden_claims", FORBIDDEN_CLAIMS),
+            "force_always_fail": state.get("force_always_fail", False),
+        },
+        response_schema=REVIEWER_SCHEMA,
+        **_llm_context(state),
+    )
 
-    for item in state.get("generated_content", []):
-        for claim in forbidden_claims:
-            if claim in item.get("body", ""):
-                feedback.append(f"{item['channel']}: พบคำกล่าวอ้างต้องห้าม '{claim}'")
+    review = result.data
+    feedback: list[str] = list(review.get("issues", []))
+    forbidden_claims = state.get("forbidden_claims", FORBIDDEN_CLAIMS)
+    content_blob = " ".join(
+        [
+            item.get("body", "")
+            + " "
+            + item.get("metadata", {}).get("caption", "")
+            + " "
+            + item.get("metadata", {}).get("hook", "")
+            for item in state.get("generated_content", [])
+        ]
+    )
+
+    risky_claims = [claim for claim in forbidden_claims if claim in content_blob]
+    for claim in risky_claims:
+        message = f"พบคำกล่าวอ้างต้องห้าม '{claim}'"
+        if message not in feedback:
+            feedback.append(message)
 
     if state.get("force_always_fail", False):
-        feedback.append("Forced deterministic review failure")
+        message = "Forced deterministic review failure"
+        if message not in feedback:
+            feedback.append(message)
 
-    review_passed = not feedback
+    status = review.get("status", "revision_required")
+    if risky_claims and status in PASSING_REVIEW_STATUSES:
+        status = "revision_required"
+    review_passed = status in PASSING_REVIEW_STATUSES and not feedback
     updates = {
         "review_passed": review_passed,
-        "review_feedback": feedback or ["ผ่านการตรวจคำกล่าวอ้างเบื้องต้น"],
+        "review_feedback": feedback or [review.get("revision_notes") or "ผ่านการตรวจคำกล่าวอ้างเบื้องต้น"],
+        "review_result": {
+            "status": status,
+            "score": review.get("score", 0),
+            "issues": feedback,
+            "revision_notes": review.get("revision_notes", ""),
+        },
     }
     return _record_step(state, "review_content", updates)
 
@@ -253,6 +438,7 @@ def save_content(state: ContentFactoryState) -> dict[str, Any]:
                         None,
                     ),
                     "review_feedback": state.get("review_feedback", []),
+                    "review_result": state.get("review_result", {}),
                 },
             )
             db.add(content_item)
@@ -316,6 +502,7 @@ def initial_state(
         max_retries=request.max_retries,
         saved_content_item_ids=[],
         force_initial_review_failure=request.force_initial_review_failure,
+        llm_service=overrides.pop("llm_service", create_llm_service()),
         **overrides,
     )
 

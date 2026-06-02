@@ -89,6 +89,31 @@ CREATE TABLE IF NOT EXISTS agent_run_steps (
   completed_at TIMESTAMPTZ
 );
 
+CREATE TABLE IF NOT EXISTS prompt_versions (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  agent_name TEXT NOT NULL,
+  version TEXT NOT NULL DEFAULT 'v1',
+  content_hash TEXT NOT NULL,
+  prompt_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (agent_name, content_hash)
+);
+
+CREATE TABLE IF NOT EXISTS llm_usage_logs (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  agent_run_id TEXT REFERENCES agent_runs(id) ON DELETE SET NULL,
+  campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
+  prompt_version_id TEXT REFERENCES prompt_versions(id) ON DELETE SET NULL,
+  agent_name TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'mock',
+  model_name TEXT NOT NULL,
+  prompt_tokens INTEGER,
+  completion_tokens INTEGER,
+  total_tokens INTEGER,
+  raw_response_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS brand_memories (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -104,6 +129,12 @@ CREATE INDEX IF NOT EXISTS idx_content_items_campaign_id ON content_items(campai
 CREATE INDEX IF NOT EXISTS idx_approvals_content_item_id ON approvals(content_item_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_campaign_id ON agent_runs(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_agent_run_steps_agent_run_id ON agent_run_steps(agent_run_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_agent_name ON prompt_versions(agent_name);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_content_hash ON prompt_versions(content_hash);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_agent_run_id ON llm_usage_logs(agent_run_id);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_campaign_id ON llm_usage_logs(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_prompt_version_id ON llm_usage_logs(prompt_version_id);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_agent_name ON llm_usage_logs(agent_name);
 CREATE INDEX IF NOT EXISTS idx_brand_memories_embedding ON brand_memories USING ivfflat (embedding vector_cosine_ops);
 
 INSERT INTO brands (id, name, slug, description, voice, compliance_notes)

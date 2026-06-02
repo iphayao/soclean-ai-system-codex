@@ -30,12 +30,16 @@ services:
 
   api:
     build:
-      context: ./apps/api
+      context: .
+      dockerfile: apps/api/Dockerfile
     container_name: soclean-api
     environment:
       DATABASE_URL: postgresql+psycopg://soclean:soclean@postgres:5432/soclean
       REDIS_URL: redis://redis:6379/0
       API_CORS_ORIGINS: http://localhost:3000,http://web:3000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
     ports:
       - "8000:8000"
     depends_on:

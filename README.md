@@ -12,10 +12,19 @@ Phase 1 through Phase 3 skeleton for the SoClean Agentic AI Content System.
 - Docker Compose
 
 Phase 3 adds a LangGraph content factory workflow with deterministic mocked outputs. Real LLM calls and n8n remain intentionally unimplemented.
+Phase 4 adds an OpenAI-compatible LLM service abstraction. If `OPENAI_API_KEY` is not set, the backend falls back to deterministic mock JSON so local tests and demos remain repeatable.
 
 ## Run Locally
 
 ```bash
+docker compose up --build
+```
+
+Optional live LLM mode:
+
+```bash
+export OPENAI_API_KEY="..."
+export OPENAI_MODEL="gpt-4o-mini"
 docker compose up --build
 ```
 
@@ -63,6 +72,7 @@ Agent workflow endpoint:
 - `POST /api/campaigns/{campaign_id}/generate-content`
 
 The Phase 3 workflow generates Thai content by default for TikTok, Facebook, and LINE, logs `agent_runs` and `agent_run_steps`, and saves generated `content_items`.
+Phase 4 prompt files live in `/prompts`, and LLM calls are logged to `llm_usage_logs` with prompt versions in `prompt_versions`.
 
 Health check:
 
