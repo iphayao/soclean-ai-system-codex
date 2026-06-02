@@ -9,6 +9,7 @@ Phase 1 through Phase 3 skeleton for the SoClean Agentic AI Content System.
 - `apps/api`: Python FastAPI
 - PostgreSQL with pgvector
 - Redis
+- Celery worker for async content generation
 - Docker Compose
 
 Phase 3 adds a LangGraph content factory workflow with deterministic mocked outputs. Real LLM calls and n8n remain intentionally unimplemented.
@@ -70,8 +71,9 @@ CRUD endpoints are available under:
 Agent workflow endpoint:
 
 - `POST /api/campaigns/{campaign_id}/generate-content`
+- `GET /api/jobs/{job_id}`
 
-The Phase 3 workflow generates Thai content by default for TikTok, Facebook, and LINE, logs `agent_runs` and `agent_run_steps`, and saves generated `content_items`.
+The content generation endpoint enqueues a Celery job and returns a `job_id` immediately. The worker runs the LangGraph workflow, saves generated `content_items`, and logs `agent_runs` / `agent_run_steps`.
 Phase 4 prompt files live in `/prompts`, and LLM calls are logged to `llm_usage_logs` with prompt versions in `prompt_versions`.
 
 Health check:

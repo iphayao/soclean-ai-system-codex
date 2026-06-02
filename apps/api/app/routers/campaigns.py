@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
-from app.agents.content_factory import run_content_factory
 from app.database import get_db
+from app.tasks.content_generation import generate_campaign_content_task
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ def delete_campaign(campaign_id: str, db: Session = Depends(get_db)):
     crud.delete_record(db, models.Campaign, campaign_id)
 
 
-@router.post("/{campaign_id}/generate-content", response_model=schemas.GenerateContentResponse)
+@router.post("/{campaign_id}/generate-content", response_model=schemas.GenerateContentJobResponse)
 def generate_campaign_content(
     campaign_id: str,
     payload: schemas.GenerateContentRequest | None = None,
@@ -42,4 +42,15 @@ def generate_campaign_content(
 ):
     crud.get_record(db, models.Campaign, campaign_id)
     request = payload or schemas.GenerateContentRequest()
-    return run_content_factory(db=db, campaign_id=campaign_id, request=request)
+    job = models.GenerationJob(campaign_id=campaign_id, status="queued")
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    task = generate_campaign_content_task.apply_async(
+        args=[job.id, campaign_id, request.model_dump()],
+        task_id=job.id,
+    )
+    job.celery_task_id = task.id
+    db.commit()
+    return schemas.GenerateContentJobResponse(job_id=job.id, campaign_id=campaign_id, status="queued")

@@ -47,6 +47,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <span>Generated Items</span>
           <strong>{campaignContent.length}</strong>
         </div>
+        <div className="card metric">
+          <span>Generation Status</span>
+          {campaignRuns[0] ? <StatusBadge status={campaignRuns[0].status} /> : <strong style={{ fontSize: 18 }}>Not started</strong>}
+        </div>
       </section>
 
       <section className="grid cols-2" style={{ marginTop: 16 }}>

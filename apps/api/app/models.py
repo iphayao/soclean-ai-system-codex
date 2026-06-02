@@ -122,6 +122,19 @@ class AgentRun(Base, TimestampMixin):
     steps: Mapped[list["AgentRunStep"]] = relationship(back_populates="agent_run", cascade="all, delete-orphan")
 
 
+class GenerationJob(Base, TimestampMixin):
+    __tablename__ = "generation_jobs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    celery_task_id: Mapped[str | None] = mapped_column(String, index=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="queued", index=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    result_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    campaign: Mapped[Campaign] = relationship()
+
+
 class AgentRunStep(Base):
     __tablename__ = "agent_run_steps"
 

@@ -162,6 +162,12 @@ class GenerateContentRequest(APIModel):
     force_initial_review_failure: bool = False
 
 
+class GenerateContentJobResponse(APIModel):
+    job_id: str
+    campaign_id: str
+    status: str
+
+
 class AgentRunStepRead(APIModel):
     id: str
     step_order: int
@@ -194,3 +200,14 @@ class GenerateContentResponse(APIModel):
     review_passed: bool
     content_item_ids: list[str]
     content_items: list[ContentItemRead]
+
+
+class JobRead(APIModel):
+    id: str
+    campaign_id: str
+    celery_task_id: str | None = None
+    status: str
+    error: str | None = None
+    result_metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime

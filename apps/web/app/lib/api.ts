@@ -105,6 +105,23 @@ export type GenerateContentResponse = {
   content_items: ContentItem[];
 };
 
+export type GenerationJob = {
+  id: string;
+  campaign_id: string;
+  celery_task_id: string | null;
+  status: "queued" | "running" | "completed" | "failed";
+  error: string | null;
+  result_metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GenerateContentJobResponse = {
+  job_id: string;
+  campaign_id: string;
+  status: GenerationJob["status"];
+};
+
 export const API_BASE_URL =
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -168,7 +185,8 @@ export const api = {
   updateCampaign: (id: string, body: Partial<Campaign>) =>
     apiRequest<Campaign>(`/api/campaigns/${id}`, { method: "PATCH", body }),
   generateCampaignContent: (id: string) =>
-    apiRequest<GenerateContentResponse>(`/api/campaigns/${id}/generate-content`, { method: "POST", body: {} }),
+    apiRequest<GenerateContentJobResponse>(`/api/campaigns/${id}/generate-content`, { method: "POST", body: {} }),
+  getJob: (id: string) => apiRequest<GenerationJob>(`/api/jobs/${id}`),
 
   getContentItems: () => safeList<ContentItem>("/api/content-items"),
   getContentItem: (id: string) => safeGet<ContentItem>(`/api/content-items/${id}`),

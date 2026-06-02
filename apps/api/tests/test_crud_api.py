@@ -152,18 +152,28 @@ def test_generate_content_endpoint_creates_content_items() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "completed"
-    assert payload["review_passed"] is True
-    assert payload["retry_count"] == 0
-    assert len(payload["content_item_ids"]) == 3
-    assert {item["channel"] for item in payload["content_items"]} == {"TikTok", "Facebook", "LINE"}
-    assert all("2 ชั้น" in item["body"] for item in payload["content_items"])
+    assert payload["status"] == "queued"
+    assert payload["campaign_id"] == campaign["id"]
+    assert payload["job_id"]
+
+    job_response = client.get(f"/api/jobs/{payload['job_id']}")
+    assert job_response.status_code == 200
+    job = job_response.json()
+    assert job["status"] == "completed"
+    assert job["result_metadata"]["review_passed"] is True
+    assert job["result_metadata"]["retry_count"] == 0
+    assert len(job["result_metadata"]["content_item_ids"]) == 3
 
     listed = client.get("/api/content-items")
     assert listed.status_code == 200
     assert len(listed.json()) == 3
+    assert {item["channel"] for item in listed.json()} == {"TikTok", "Facebook", "LINE"}
+    assert all("2 ชั้น" in item["body"] for item in listed.json())
 
     with SessionLocal() as db:
+        generation_jobs = list(db.scalars(select(models.GenerationJob)).all())
+        assert len(generation_jobs) == 1
+        assert generation_jobs[0].status == "completed"
         agent_runs = list(db.scalars(select(models.AgentRun)).all())
         assert len(agent_runs) == 1
         assert agent_runs[0].status == "completed"

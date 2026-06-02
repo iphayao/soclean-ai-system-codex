@@ -76,6 +76,17 @@ CREATE TABLE IF NOT EXISTS agent_runs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS generation_jobs (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  celery_task_id TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  error TEXT,
+  result_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS agent_run_steps (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   agent_run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
@@ -128,6 +139,9 @@ CREATE INDEX IF NOT EXISTS idx_campaigns_brand_id ON campaigns(brand_id);
 CREATE INDEX IF NOT EXISTS idx_content_items_campaign_id ON content_items(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_approvals_content_item_id ON approvals(content_item_id);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_campaign_id ON agent_runs(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_campaign_id ON generation_jobs(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_celery_task_id ON generation_jobs(celery_task_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON generation_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_agent_run_steps_agent_run_id ON agent_run_steps(agent_run_id);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_agent_name ON prompt_versions(agent_name);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_content_hash ON prompt_versions(content_hash);
