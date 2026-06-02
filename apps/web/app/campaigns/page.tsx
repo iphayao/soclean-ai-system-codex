@@ -1,36 +1,48 @@
-import { getCampaigns } from "@/app/lib/api";
+import Link from "next/link";
+
+import { api, formatDate } from "@/app/lib/api";
+import { CampaignForm } from "@/components/Forms";
+import { StatusBadge } from "@/components/StatusBadge";
 
 export const dynamic = "force-dynamic";
 
 export default async function CampaignsPage() {
-  const campaigns = await getCampaigns();
+  const [brands, campaigns] = await Promise.all([api.getBrands(), api.getCampaigns()]);
 
   return (
     <>
       <header className="page-header">
         <div>
           <h1>Campaigns</h1>
-          <p>Campaign objectives, audiences, and status tracking for SoClean content planning.</p>
+          <p>Create campaigns, generate content, and track campaign status.</p>
         </div>
       </header>
 
-      <section className="table">
-        <div className="table-row table-head">
-          <span>Campaign</span>
-          <span>Objective</span>
-          <span>Timing</span>
-          <span>Status</span>
+      <section className="grid cols-2">
+        <div className="card">
+          <h2 className="section-title">Create Campaign</h2>
+          <CampaignForm brands={brands} />
         </div>
-        {campaigns.map((campaign) => (
-          <div className="table-row" key={campaign.id}>
-            <span className="item-title">{campaign.name}</span>
-            <span>{campaign.objective}</span>
-            <span>
-              {campaign.start_date ?? "TBD"} to {campaign.end_date ?? "TBD"}
-            </span>
-            <span className={`pill ${campaign.status}`}>{campaign.status}</span>
+        <div className="table">
+          <div className="table-row table-head">
+            <span>Campaign</span>
+            <span>Objective</span>
+            <span>Timing</span>
+            <span>Status</span>
           </div>
-        ))}
+          {campaigns.map((campaign) => (
+            <div className="table-row" key={campaign.id}>
+              <Link href={`/campaigns/${campaign.id}`} className="item-title">
+                {campaign.name}
+              </Link>
+              <span>{campaign.objective}</span>
+              <span>
+                {formatDate(campaign.start_date)} to {formatDate(campaign.end_date)}
+              </span>
+              <StatusBadge status={campaign.status} />
+            </div>
+          ))}
+        </div>
       </section>
     </>
   );

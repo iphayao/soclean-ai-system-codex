@@ -5,6 +5,8 @@ export type Brand = {
   description: string | null;
   voice: string | null;
   compliance_notes: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type Product = {
@@ -17,6 +19,8 @@ export type Product = {
   key_benefits: string[];
   price_cents: number | null;
   active: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type Campaign = {
@@ -28,6 +32,8 @@ export type Campaign = {
   start_date: string | null;
   end_date: string | null;
   target_audience: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type ContentItem = {
@@ -40,6 +46,8 @@ export type ContentItem = {
   status: string;
   body: string | null;
   metadata: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type Approval = {
@@ -49,42 +57,150 @@ export type Approval = {
   status: string;
   feedback: string | null;
   decided_at: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
-const apiBaseUrl = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export type AgentRunStep = {
+  id: string;
+  step_order: number;
+  step_name: string;
+  status: string;
+  output_metadata: Record<string, unknown>;
+  error: string | null;
+  started_at: string;
+  completed_at: string | null;
+};
 
-async function fetchResource<T>(path: string): Promise<T[]> {
+export type AgentRun = {
+  id: string;
+  campaign_id: string;
+  workflow_name: string;
+  status: string;
+  retry_count: number;
+  run_metadata: Record<string, unknown>;
+  output_metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  steps: AgentRunStep[];
+};
+
+export type PerformanceMetric = {
+  id: string;
+  campaign_id: string | null;
+  platform: string;
+  metric_name: string;
+  metric_value: number;
+  period_start: string | null;
+  period_end: string | null;
+};
+
+export type GenerateContentResponse = {
+  agent_run_id: string;
+  campaign_id: string;
+  status: string;
+  retry_count: number;
+  review_passed: boolean;
+  content_item_ids: string[];
+  content_items: ContentItem[];
+};
+
+export const API_BASE_URL =
+  process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+type RequestOptions = Omit<RequestInit, "body"> & {
+  body?: unknown;
+};
+
+async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    cache: options.cache ?? "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${path}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+async function safeList<T>(path: string): Promise<T[]> {
   try {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    return (await response.json()) as T[];
+    return await apiRequest<T[]>(path);
   } catch {
     return [];
   }
 }
 
-export function getBrands() {
-  return fetchResource<Brand>("/api/brands");
+async function safeGet<T>(path: string): Promise<T | null> {
+  try {
+    return await apiRequest<T>(path);
+  } catch {
+    return null;
+  }
 }
 
-export function getProducts() {
-  return fetchResource<Product>("/api/products");
+export const api = {
+  getBrands: () => safeList<Brand>("/api/brands"),
+  getBrand: (id: string) => safeGet<Brand>(`/api/brands/${id}`),
+  createBrand: (body: Partial<Brand>) => apiRequest<Brand>("/api/brands", { method: "POST", body }),
+  updateBrand: (id: string, body: Partial<Brand>) => apiRequest<Brand>(`/api/brands/${id}`, { method: "PATCH", body }),
+
+  getProducts: () => safeList<Product>("/api/products"),
+  getProduct: (id: string) => safeGet<Product>(`/api/products/${id}`),
+  createProduct: (body: Partial<Product>) => apiRequest<Product>("/api/products", { method: "POST", body }),
+  updateProduct: (id: string, body: Partial<Product>) =>
+    apiRequest<Product>(`/api/products/${id}`, { method: "PATCH", body }),
+
+  getCampaigns: () => safeList<Campaign>("/api/campaigns"),
+  getCampaign: (id: string) => safeGet<Campaign>(`/api/campaigns/${id}`),
+  createCampaign: (body: Partial<Campaign>) => apiRequest<Campaign>("/api/campaigns", { method: "POST", body }),
+  updateCampaign: (id: string, body: Partial<Campaign>) =>
+    apiRequest<Campaign>(`/api/campaigns/${id}`, { method: "PATCH", body }),
+  generateCampaignContent: (id: string) =>
+    apiRequest<GenerateContentResponse>(`/api/campaigns/${id}/generate-content`, { method: "POST", body: {} }),
+
+  getContentItems: () => safeList<ContentItem>("/api/content-items"),
+  getContentItem: (id: string) => safeGet<ContentItem>(`/api/content-items/${id}`),
+  updateContentItem: (id: string, body: Partial<ContentItem>) =>
+    apiRequest<ContentItem>(`/api/content-items/${id}`, { method: "PATCH", body }),
+
+  getApprovals: () => safeList<Approval>("/api/approvals"),
+  createApproval: (body: Partial<Approval>) => apiRequest<Approval>("/api/approvals", { method: "POST", body }),
+
+  getAgentRuns: () => safeList<AgentRun>("/api/agent-runs"),
+};
+
+export function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return "TBD";
+  }
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
 
-export function getCampaigns() {
-  return fetchResource<Campaign>("/api/campaigns");
+export function campaignName(campaigns: Campaign[], campaignId: string) {
+  return campaigns.find((campaign) => campaign.id === campaignId)?.name ?? "Unknown campaign";
 }
 
-export function getContentItems() {
-  return fetchResource<ContentItem>("/api/content-items");
+export function productName(products: Product[], productId: string | null) {
+  if (!productId) {
+    return "No product";
+  }
+  return products.find((product) => product.id === productId)?.name ?? "Unknown product";
 }
 
-export function getApprovals() {
-  return fetchResource<Approval>("/api/approvals");
-}
+export const getBrands = api.getBrands;
+export const getProducts = api.getProducts;
+export const getCampaigns = api.getCampaigns;
+export const getContentItems = api.getContentItems;
+export const getApprovals = api.getApprovals;

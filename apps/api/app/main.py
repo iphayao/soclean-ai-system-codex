@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import approvals, brands, campaigns, content_items, products
+from app.routers import agent_runs, approvals, brands, campaigns, content_items, products
 
 
 @asynccontextmanager
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(campaigns.router, prefix="/api/campaigns", tags=["campaigns"])
     app.include_router(content_items.router, prefix="/api/content-items", tags=["content_items"])
     app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"])
+    app.include_router(agent_runs.router, prefix="/api/agent-runs", tags=["agent_runs"])
 
     return app
 

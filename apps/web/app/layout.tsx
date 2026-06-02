@@ -1,20 +1,34 @@
 import type { Metadata } from "next";
-import { BarChart3, Boxes, ClipboardCheck, FileText, Library } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  CalendarDays,
+  ClipboardCheck,
+  FileText,
+  Library,
+  LineChart,
+  PlayCircle,
+  Settings,
+} from "lucide-react";
 import Link from "next/link";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SoClean Content System",
-  description: "Phase 1/2 operating shell for SoClean content workflows.",
+  description: "Admin dashboard for SoClean content workflows.",
 };
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: BarChart3 },
+  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/brand-memory", label: "Brand Memory", icon: Library },
   { href: "/products", label: "Products", icon: Boxes },
   { href: "/campaigns", label: "Campaigns", icon: FileText },
+  { href: "/content-calendar", label: "Calendar", icon: CalendarDays },
   { href: "/content-review", label: "Content Review", icon: ClipboardCheck },
+  { href: "/performance", label: "Performance", icon: LineChart },
+  { href: "/agent-runs", label: "Agent Runs", icon: PlayCircle },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
