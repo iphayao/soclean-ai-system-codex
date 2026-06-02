@@ -181,34 +181,23 @@ VALUES (
   'brand-soclean',
   'SoClean',
   'soclean',
-  'SoClean builds premium cleaning and sanitization systems for people who want easy, consistent daily upkeep.',
-  'Clear, helpful, confident, and practical. Avoid hype; focus on ease, routine, freshness, and peace of mind.',
-  'Do not make unverified medical claims. Avoid promising disease prevention or treatment. Keep claims tied to product documentation.'
+  'SoClean is a Thai tissue brand focused on everyday softness, cleanliness, and low-dust usage.',
+  'ภาษาไทยที่ชัดเจน อบอุ่น น่าเชื่อถือ และเหมาะกับการขายบน TikTok, Facebook, LINE',
+  'ใช้คำกล่าวอ้างที่ปลอดภัย เช่น เนียนนุ่ม สะอาด ฝุ่นน้อย ไม่ฟุ้งง่าย หลีกเลี่ยง ไร้ฝุ่น 100%, ไม่ก่อภูมิแพ้, ฆ่าเชื้อโรค, ปลอดภัยที่สุด, medical grade, antibacterial, hypoallergenic'
 )
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO products (id, brand_id, name, slug, category, description, key_benefits, price_cents, active)
 VALUES
   (
-    'product-soclean-3',
+    'product-soclean-tissue',
     'brand-soclean',
-    'SoClean 3',
-    'soclean-3',
-    'CPAP maintenance',
-    'A connected daily maintenance system designed to simplify CPAP equipment upkeep.',
-    '["Automated daily routine", "Modern connected experience", "Designed for CPAP equipment care"]'::jsonb,
-    39900,
-    true
-  ),
-  (
-    'product-soclean-air',
-    'brand-soclean',
-    'SoClean Air',
-    'soclean-air',
-    'Air purification',
-    'A home air purification product focused on fresher everyday spaces.',
-    '["Cleaner-feeling home air", "Quiet daily operation", "Simple household setup"]'::jsonb,
-    29900,
+    'SoClean Tissue',
+    'soclean-tissue',
+    'Household tissue',
+    'ทิชชู่ SoClean 2 ชั้น 180 แผ่น 5 ห่อต่อแพ็ก และ 50 แพ็กต่อกล่อง',
+    '["เนียนนุ่ม", "สะอาด", "ฝุ่นน้อย", "ไม่ฟุ้งง่าย", "2 ชั้น", "180 แผ่น", "5 ห่อต่อแพ็ก", "50 แพ็กต่อกล่อง"]'::jsonb,
+    5900,
     true
   )
 ON CONFLICT (slug) DO NOTHING;
@@ -216,62 +205,70 @@ ON CONFLICT (slug) DO NOTHING;
 INSERT INTO campaigns (id, brand_id, name, objective, status, start_date, end_date, target_audience)
 VALUES
   (
-    'campaign-spring-refresh',
+    'campaign-thai-social-launch',
     'brand-soclean',
-    'Spring Refresh',
-    'Increase awareness of SoClean products as part of a simple seasonal cleaning reset.',
+    'Thai Social Launch',
+    'Generate Thai marketing content for TikTok, Facebook, and LINE using safe tissue product claims.',
     'active',
-    '2026-03-01',
-    '2026-05-31',
-    'Current and prospective customers who value low-friction home care routines.'
+    '2026-06-01',
+    '2026-08-31',
+    'ครอบครัว ร้านค้า และผู้ซื้อที่ต้องการทิชชู่สำหรับใช้ในชีวิตประจำวัน'
   ),
   (
-    'campaign-cpap-routine',
+    'campaign-retail-bundle',
     'brand-soclean',
-    'CPAP Routine Confidence',
-    'Educate CPAP users about consistent equipment maintenance routines without making medical claims.',
+    'Retail Bundle Push',
+    'Promote SoClean bundle and carton facts for retail buyers while avoiding unsupported safety claims.',
     'draft',
-    '2026-06-15',
-    '2026-08-31',
-    'CPAP users and caregivers looking for practical daily upkeep guidance.'
+    '2026-09-01',
+    '2026-10-31',
+    'ร้านค้าปลีกและผู้ซื้อแบบยกลัง'
   )
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO content_items (id, campaign_id, product_id, title, channel, format, status, body, metadata)
 VALUES
   (
-    'content-spring-email',
-    'campaign-spring-refresh',
-    'product-soclean-air',
-    'Refresh the Rooms You Use Every Day',
-    'email',
-    'newsletter',
+    'content-soclean-facebook-review',
+    'campaign-thai-social-launch',
+    'product-soclean-tissue',
+    'ทิชชู่ที่บ้านหยิบใช้ได้ทุกวัน',
+    'Facebook',
+    'post',
     'in_review',
-    'A concise seasonal email draft about adding air purification to a spring cleaning routine.',
-    '{"tone": "practical", "approval_required": true}'::jsonb
+    'SoClean ทิชชู่ 2 ชั้น 180 แผ่น เนียนนุ่ม สะอาด ฝุ่นน้อย ไม่ฟุ้งง่าย เหมาะสำหรับใช้ในบ้านและร้านค้า สั่งซื้อหรือทักสอบถามได้เลย',
+    '{"language": "th", "approval_required": true, "safe_claims": ["เนียนนุ่ม", "สะอาด", "ฝุ่นน้อย", "ไม่ฟุ้งง่าย"]}'::jsonb
   ),
   (
-    'content-cpap-social',
-    'campaign-cpap-routine',
-    'product-soclean-3',
-    'A Simpler Daily CPAP Upkeep Habit',
-    'social',
-    'linkedin_post',
-    'draft',
-    'A draft social post focused on habit formation and ease of use.',
-    '{"tone": "educational", "approval_required": true}'::jsonb
+    'content-soclean-line-approved',
+    'campaign-thai-social-launch',
+    'product-soclean-tissue',
+    'โปรยกแพ็กสำหรับร้านค้า',
+    'LINE',
+    'message',
+    'approved',
+    'SoClean ทิชชู่ 2 ชั้น 180 แผ่น 5 ห่อต่อแพ็ก และ 50 แพ็กต่อกล่อง เนียนนุ่ม สะอาด ฝุ่นน้อย ไม่ฟุ้งง่าย ทักไลน์เพื่อสอบถามราคาได้เลย',
+    '{"language": "th", "approval_required": true, "approved_for_sample_export": true}'::jsonb
   )
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO approvals (id, content_item_id, reviewer_name, status, feedback, decided_at)
 VALUES
   (
-    'approval-spring-email',
-    'content-spring-email',
+    'approval-soclean-facebook-review',
+    'content-soclean-facebook-review',
     'Brand Review',
     'pending',
-    'Confirm seasonal language and keep product claims conservative.',
+    'Confirm final channel formatting before scheduling.',
     NULL
+  ),
+  (
+    'approval-soclean-line-approved',
+    'content-soclean-line-approved',
+    'Brand Review',
+    'approved',
+    'Approved for export. Claims are limited to safe SoClean tissue language.',
+    now()
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -281,14 +278,14 @@ VALUES
     'memory-soclean-voice',
     'brand-soclean',
     'SoClean Voice',
-    'SoClean content should be clear, practical, confident, and grounded in everyday cleaning routines.',
+    'SoClean content should be Thai-first, clear, practical, warm, and suitable for TikTok, Facebook, and LINE.',
     NULL
   ),
   (
     'memory-soclean-compliance',
     'brand-soclean',
     'Compliance Boundary',
-    'Avoid unsupported health or disease-prevention claims. Prefer routine, freshness, convenience, and documented product features.',
+    'Use safer claims: เนียนนุ่ม, สะอาด, ฝุ่นน้อย, ไม่ฟุ้งง่าย. Avoid risky claims: ไร้ฝุ่น 100%, ไม่ก่อภูมิแพ้, ฆ่าเชื้อโรค, ปลอดภัยที่สุด, medical grade, antibacterial, hypoallergenic.',
     NULL
   )
 ON CONFLICT (id) DO NOTHING;

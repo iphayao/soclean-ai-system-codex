@@ -102,7 +102,7 @@ export function ContentExportButton({ content }: { content: ContentItem }) {
       setMessage("Exported to n8n.");
       router.refresh();
     } catch {
-      setMessage("Export failed. Content must be approved and n8n must be configured.");
+      setMessage("Export failed. Content needs human approval and n8n must be configured.");
     } finally {
       setIsExporting(false);
     }

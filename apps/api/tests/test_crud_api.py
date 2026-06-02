@@ -62,18 +62,18 @@ def test_content_workflow_crud() -> None:
         "/api/products",
         json={
             "brand_id": brand["id"],
-            "name": "SoClean 3",
-            "slug": "soclean-3",
-            "category": "CPAP maintenance",
-            "key_benefits": ["Automated routine"],
+            "name": "SoClean Tissue",
+            "slug": "soclean-tissue",
+            "category": "Household tissue",
+            "key_benefits": ["เนียนนุ่ม", "สะอาด", "ฝุ่นน้อย", "ไม่ฟุ้งง่าย"],
         },
     ).json()
     campaign = client.post(
         "/api/campaigns",
         json={
             "brand_id": brand["id"],
-            "name": "Routine Confidence",
-            "objective": "Educate customers about easier daily upkeep.",
+            "name": "Thai Social Launch",
+            "objective": "Create Thai content for everyday tissue buyers.",
         },
     ).json()
 
@@ -244,6 +244,16 @@ def test_can_export_approved_content_with_mocked_n8n() -> None:
             "metadata": {"caption": "ready"},
         },
     ).json()
+    approval = client.post(
+        "/api/approvals",
+        json={
+            "content_item_id": content["id"],
+            "reviewer_name": "Dashboard Review",
+            "status": "approved",
+            "feedback": "Approved for export.",
+        },
+    )
+    assert approval.status_code == 201
 
     class MockN8NService:
         def export_content(self, content_item: models.ContentItem) -> dict:
@@ -260,6 +270,28 @@ def test_can_export_approved_content_with_mocked_n8n() -> None:
     exported = client.get(f"/api/content-items/{content['id']}").json()
     assert exported["status"] == "exported"
     assert exported["metadata"]["n8n_export"]["received"] == content["id"]
+
+
+def test_export_requires_human_approval_record() -> None:
+    reset_db()
+    _, _, campaign = create_generation_fixture()
+    content = client.post(
+        "/api/content-items",
+        json={
+            "campaign_id": campaign["id"],
+            "title": "Manually approved content",
+            "channel": "Facebook",
+            "format": "post",
+            "status": "approved",
+            "body": "Approved status without approval record",
+            "metadata": {},
+        },
+    ).json()
+
+    response = client.post(f"/api/content/{content['id']}/export")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Human approval is required before export"
 
 
 def test_csv_import_stores_metrics_and_roas() -> None:

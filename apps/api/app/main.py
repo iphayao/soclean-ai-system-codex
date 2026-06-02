@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(
         title="SoClean Agentic AI Content System API",
-        description="Phase 1/2 CRUD API for brand, product, campaign, content, and approval workflows.",
+        description="MVP API for SoClean brand memory, campaign content generation, review, export, and analytics.",
         version="0.1.0",
         lifespan=lifespan,
     )

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
@@ -6,6 +7,16 @@ from app.database import get_db
 from app.services.n8n_service import N8NService, get_n8n_service
 
 router = APIRouter()
+
+
+def _has_human_approval(db: Session, content_id: str) -> bool:
+    approval = db.scalar(
+        select(models.Approval).where(
+            models.Approval.content_item_id == content_id,
+            models.Approval.status == "approved",
+        )
+    )
+    return approval is not None
 
 
 @router.post("/{content_id}/export", response_model=schemas.ContentExportResponse)
@@ -19,6 +30,11 @@ def export_content(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only approved content can be exported",
+        )
+    if not _has_human_approval(db, content.id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Human approval is required before export",
         )
 
     response_metadata = n8n_service.export_content(content)

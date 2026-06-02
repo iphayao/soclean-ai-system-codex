@@ -1,4 +1,5 @@
 from app.rules.claim_rules import (
+    BANNED_CLAIMS,
     calculate_review_score,
     detect_claim_risks,
     map_score_to_status,
@@ -35,6 +36,19 @@ def test_risky_content_cannot_be_approved_automatically() -> None:
 
     assert score < 60
     assert map_score_to_status(score) == "reject"
+
+
+def test_every_banned_claim_blocks_ready_status() -> None:
+    for claim in BANNED_CLAIMS:
+        content = {
+            "body": f"SoClean ทิชชู่ 2 ชั้น 180 แผ่น {claim}",
+            "metadata": {"cta": "สั่งซื้อได้เลย"},
+        }
+
+        score = calculate_review_score(content)
+
+        assert detect_claim_risks(content["body"])
+        assert map_score_to_status(score) != "ready_to_approve"
 
 
 def test_replacements_are_suggested() -> None:
