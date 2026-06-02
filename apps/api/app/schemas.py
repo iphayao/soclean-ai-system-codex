@@ -153,3 +153,44 @@ class ApprovalRead(ApprovalBase):
     id: str
     created_at: datetime
     updated_at: datetime
+
+
+class GenerateContentRequest(APIModel):
+    language: str = "th"
+    platforms: list[str] = Field(default_factory=lambda: ["TikTok", "Facebook", "LINE"])
+    max_retries: int = 2
+    force_initial_review_failure: bool = False
+
+
+class AgentRunStepRead(APIModel):
+    id: str
+    step_order: int
+    step_name: str
+    status: str
+    output_metadata: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
+    started_at: datetime
+    completed_at: datetime | None = None
+
+
+class AgentRunRead(APIModel):
+    id: str
+    campaign_id: str
+    workflow_name: str
+    status: str
+    retry_count: int
+    run_metadata: dict[str, Any] = Field(default_factory=dict)
+    output_metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+    steps: list[AgentRunStepRead] = Field(default_factory=list)
+
+
+class GenerateContentResponse(APIModel):
+    agent_run_id: str
+    campaign_id: str
+    status: str
+    retry_count: int
+    review_passed: bool
+    content_item_ids: list[str]
+    content_items: list[ContentItemRead]

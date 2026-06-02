@@ -1,6 +1,6 @@
 # SoClean Agentic AI Content System
 
-Phase 1 and Phase 2 skeleton for the SoClean Agentic AI Content System.
+Phase 1 through Phase 3 skeleton for the SoClean Agentic AI Content System.
 
 ## Stack
 
@@ -11,7 +11,7 @@ Phase 1 and Phase 2 skeleton for the SoClean Agentic AI Content System.
 - Redis
 - Docker Compose
 
-LangGraph, LLM calls, and n8n are intentionally not implemented yet.
+Phase 3 adds a LangGraph content factory workflow with deterministic mocked outputs. Real LLM calls and n8n remain intentionally unimplemented.
 
 ## Run Locally
 
@@ -57,6 +57,12 @@ CRUD endpoints are available under:
 - `/api/campaigns`
 - `/api/content-items`
 - `/api/approvals`
+
+Agent workflow endpoint:
+
+- `POST /api/campaigns/{campaign_id}/generate-content`
+
+The Phase 3 workflow generates Thai content by default for TikTok, Facebook, and LINE, logs `agent_runs` and `agent_run_steps`, and saves generated `content_items`.
 
 Health check:
 

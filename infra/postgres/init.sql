@@ -64,6 +64,31 @@ CREATE TABLE IF NOT EXISTS approvals (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  workflow_name TEXT NOT NULL DEFAULT 'content_factory',
+  status TEXT NOT NULL DEFAULT 'running',
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  run_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  output_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS agent_run_steps (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  agent_run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+  step_order INTEGER NOT NULL,
+  step_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'completed',
+  input_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  output_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  error TEXT,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS brand_memories (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -77,6 +102,8 @@ CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id);
 CREATE INDEX IF NOT EXISTS idx_campaigns_brand_id ON campaigns(brand_id);
 CREATE INDEX IF NOT EXISTS idx_content_items_campaign_id ON content_items(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_approvals_content_item_id ON approvals(content_item_id);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_campaign_id ON agent_runs(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_agent_run_steps_agent_run_id ON agent_run_steps(agent_run_id);
 CREATE INDEX IF NOT EXISTS idx_brand_memories_embedding ON brand_memories USING ivfflat (embedding vector_cosine_ops);
 
 INSERT INTO brands (id, name, slug, description, voice, compliance_notes)

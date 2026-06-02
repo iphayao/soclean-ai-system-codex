@@ -1,10 +1,8 @@
-import os
-
-os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
-
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
-from app.database import Base, engine
+from app import models
+from app.database import Base, SessionLocal, engine
 from app.main import app
 
 
@@ -111,3 +109,72 @@ def test_content_workflow_crud() -> None:
     )
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
+
+
+def create_generation_fixture() -> tuple[dict, dict, dict]:
+    brand = client.post(
+        "/api/brands",
+        json={
+            "name": "SoClean",
+            "slug": "soclean",
+            "description": "Thai household paper products",
+            "voice": "ชัดเจน อบอุ่น และน่าเชื่อถือ",
+            "compliance_notes": "Avoid absolute dust, allergy, disinfection, and safest claims.",
+        },
+    ).json()
+    product = client.post(
+        "/api/products",
+        json={
+            "brand_id": brand["id"],
+            "name": "SoClean Tissue",
+            "slug": "soclean-tissue",
+            "category": "Household tissue",
+            "description": "2-ply tissue, 180 sheets, 5 packs per bundle, 50 packs per carton.",
+            "key_benefits": ["เนียนนุ่ม", "สะอาด", "ฝุ่นน้อย", "ไม่ฟุ้งง่าย"],
+        },
+    ).json()
+    campaign = client.post(
+        "/api/campaigns",
+        json={
+            "brand_id": brand["id"],
+            "name": "Thai Social Launch",
+            "objective": "Generate Thai content for TikTok, Facebook, and LINE.",
+        },
+    ).json()
+    return brand, product, campaign
+
+
+def test_generate_content_endpoint_creates_content_items() -> None:
+    reset_db()
+    _, _, campaign = create_generation_fixture()
+
+    response = client.post(f"/api/campaigns/{campaign['id']}/generate-content", json={})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["review_passed"] is True
+    assert payload["retry_count"] == 0
+    assert len(payload["content_item_ids"]) == 3
+    assert {item["channel"] for item in payload["content_items"]} == {"TikTok", "Facebook", "LINE"}
+    assert all("2 ชั้น" in item["body"] for item in payload["content_items"])
+
+    listed = client.get("/api/content-items")
+    assert listed.status_code == 200
+    assert len(listed.json()) == 3
+
+    with SessionLocal() as db:
+        agent_runs = list(db.scalars(select(models.AgentRun)).all())
+        assert len(agent_runs) == 1
+        assert agent_runs[0].status == "completed"
+        steps = list(db.scalars(select(models.AgentRunStep).order_by(models.AgentRunStep.step_order)).all())
+        assert [step.step_name for step in steps] == [
+            "load_brand_memory",
+            "generate_customer_insights",
+            "generate_content_strategy",
+            "generate_campaign_plan",
+            "generate_content",
+            "generate_visual_briefs",
+            "review_content",
+            "save_content",
+        ]

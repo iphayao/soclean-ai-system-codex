@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
+from app.agents.content_factory import run_content_factory
 from app.database import get_db
 
 router = APIRouter()
@@ -31,3 +32,14 @@ def update_campaign(campaign_id: str, payload: schemas.CampaignUpdate, db: Sessi
 @router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_campaign(campaign_id: str, db: Session = Depends(get_db)):
     crud.delete_record(db, models.Campaign, campaign_id)
+
+
+@router.post("/{campaign_id}/generate-content", response_model=schemas.GenerateContentResponse)
+def generate_campaign_content(
+    campaign_id: str,
+    payload: schemas.GenerateContentRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    crud.get_record(db, models.Campaign, campaign_id)
+    request = payload or schemas.GenerateContentRequest()
+    return run_content_factory(db=db, campaign_id=campaign_id, request=request)

@@ -105,3 +105,39 @@ class Approval(Base, TimestampMixin):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     content_item: Mapped[ContentItem] = relationship(back_populates="approvals")
+
+
+class AgentRun(Base, TimestampMixin):
+    __tablename__ = "agent_runs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    workflow_name: Mapped[str] = mapped_column(String, nullable=False, default="content_factory")
+    status: Mapped[str] = mapped_column(String, nullable=False, default="running")
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    run_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    output_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    campaign: Mapped[Campaign] = relationship()
+    steps: Mapped[list["AgentRunStep"]] = relationship(back_populates="agent_run", cascade="all, delete-orphan")
+
+
+class AgentRunStep(Base):
+    __tablename__ = "agent_run_steps"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    agent_run_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    step_name: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="completed")
+    input_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    output_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    error: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    agent_run: Mapped[AgentRun] = relationship(back_populates="steps")
