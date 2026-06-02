@@ -12,8 +12,9 @@ Phase 1 through Phase 3 skeleton for the SoClean Agentic AI Content System.
 - Celery worker for async content generation
 - Docker Compose
 
-Phase 3 adds a LangGraph content factory workflow with deterministic mocked outputs. Real LLM calls and n8n remain intentionally unimplemented.
+Phase 3 adds a LangGraph content factory workflow with deterministic mocked outputs.
 Phase 4 adds an OpenAI-compatible LLM service abstraction. If `OPENAI_API_KEY` is not set, the backend falls back to deterministic mock JSON so local tests and demos remain repeatable.
+Phase 8 adds approved-content export to n8n and CSV analytics import for campaign performance reporting.
 
 ## Run Locally
 
@@ -26,6 +27,14 @@ Optional live LLM mode:
 ```bash
 export OPENAI_API_KEY="..."
 export OPENAI_MODEL="gpt-4o-mini"
+docker compose up --build
+```
+
+Optional n8n export mode:
+
+```bash
+export N8N_WEBHOOK_URL="https://your-n8n.example/webhook/..."
+export N8N_WEBHOOK_SECRET="..."
 docker compose up --build
 ```
 
@@ -75,6 +84,14 @@ Agent workflow endpoint:
 
 The content generation endpoint enqueues a Celery job and returns a `job_id` immediately. The worker runs the LangGraph workflow, saves generated `content_items`, and logs `agent_runs` / `agent_run_steps`.
 Phase 4 prompt files live in `/prompts`, and LLM calls are logged to `llm_usage_logs` with prompt versions in `prompt_versions`.
+
+n8n export and analytics endpoints:
+
+- `POST /api/content/{content_id}/export`
+- `POST /api/analytics/import-csv`
+- `GET /api/analytics/campaigns/{campaign_id}`
+
+Only approved content can be exported. Analytics CSV imports require `content_id,platform,views,likes,comments,shares,clicks,add_to_cart,orders,revenue,spend,metric_date`; ROAS is calculated as `revenue / spend` when spend is greater than zero.
 
 Health check:
 

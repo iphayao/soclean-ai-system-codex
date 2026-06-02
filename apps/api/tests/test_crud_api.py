@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app import models
 from app.database import Base, SessionLocal, engine
 from app.main import app
+from app.routers.content_export import get_n8n_service
 
 
 client = TestClient(app)
@@ -204,3 +205,99 @@ def test_generate_content_endpoint_creates_content_items() -> None:
             "review_content",
             "save_content",
         ]
+
+
+def test_cannot_export_unapproved_content() -> None:
+    reset_db()
+    _, _, campaign = create_generation_fixture()
+    content = client.post(
+        "/api/content-items",
+        json={
+            "campaign_id": campaign["id"],
+            "title": "Draft content",
+            "channel": "Facebook",
+            "format": "post",
+            "status": "draft",
+            "body": "Draft body",
+            "metadata": {},
+        },
+    ).json()
+
+    response = client.post(f"/api/content/{content['id']}/export")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only approved content can be exported"
+
+
+def test_can_export_approved_content_with_mocked_n8n() -> None:
+    reset_db()
+    _, _, campaign = create_generation_fixture()
+    content = client.post(
+        "/api/content-items",
+        json={
+            "campaign_id": campaign["id"],
+            "title": "Approved content",
+            "channel": "LINE",
+            "format": "message",
+            "status": "approved",
+            "body": "Approved body",
+            "metadata": {"caption": "ready"},
+        },
+    ).json()
+
+    class MockN8NService:
+        def export_content(self, content_item: models.ContentItem) -> dict:
+            return {"received": content_item.id}
+
+    app.dependency_overrides[get_n8n_service] = lambda: MockN8NService()
+    try:
+        response = client.post(f"/api/content/{content['id']}/export")
+    finally:
+        app.dependency_overrides.pop(get_n8n_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "exported"
+    exported = client.get(f"/api/content-items/{content['id']}").json()
+    assert exported["status"] == "exported"
+    assert exported["metadata"]["n8n_export"]["received"] == content["id"]
+
+
+def test_csv_import_stores_metrics_and_roas() -> None:
+    reset_db()
+    _, _, campaign = create_generation_fixture()
+    content = client.post(
+        "/api/content-items",
+        json={
+            "campaign_id": campaign["id"],
+            "title": "Tracked content",
+            "channel": "TikTok",
+            "format": "video",
+            "status": "approved",
+            "body": "Tracked body",
+            "metadata": {},
+        },
+    ).json()
+    csv_body = (
+        "content_id,platform,views,likes,comments,shares,clicks,add_to_cart,orders,revenue,spend,metric_date\n"
+        f"{content['id']},TikTok,1000,80,20,10,50,8,4,200.00,50.00,2026-06-01\n"
+    )
+
+    response = client.post(
+        "/api/analytics/import-csv",
+        files={"file": ("analytics.csv", csv_body, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["imported"] == 1
+
+    with SessionLocal() as db:
+        metric = db.scalar(select(models.ContentAnalyticsMetric))
+        assert metric is not None
+        assert metric.raw_row["content_id"] == content["id"]
+        assert metric.roas == 4.0
+
+    analytics = client.get(f"/api/analytics/campaigns/{campaign['id']}")
+    assert analytics.status_code == 200
+    payload = analytics.json()
+    assert payload[0]["platform"] == "TikTok"
+    assert payload[0]["roas"] == 4.0

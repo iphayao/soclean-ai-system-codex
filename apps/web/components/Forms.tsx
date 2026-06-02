@@ -209,9 +209,27 @@ export function CampaignForm({ brands }: { brands: Brand[] }) {
 
 export function CsvImportForm() {
   const [fileName, setFileName] = useState("No file selected");
+  const [file, setFile] = useState<File | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!file) {
+      setMessage("Select a CSV file first.");
+      return;
+    }
+    try {
+      const result = await api.importAnalyticsCsv(file);
+      setMessage(`Imported ${result.imported} rows.`);
+      router.refresh();
+    } catch {
+      setMessage("CSV import failed. Check required columns and content IDs.");
+    }
+  }
 
   return (
-    <form className="form">
+    <form className="form" onSubmit={submit}>
       <div className="field">
         <label htmlFor="csv">CSV import</label>
         <input
@@ -219,15 +237,20 @@ export function CsvImportForm() {
           name="csv"
           type="file"
           accept=".csv"
-          onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "No file selected")}
+          onChange={(event) => {
+            const selected = event.target.files?.[0] ?? null;
+            setFile(selected);
+            setFileName(selected?.name ?? "No file selected");
+          }}
         />
       </div>
       <div className="actions">
-        <button type="button" className="secondary">
+        <button type="submit" className="secondary">
           <Upload size={16} aria-hidden="true" />
-          Import Preview
+          Import CSV
         </button>
         <span className="muted">{fileName}</span>
+        {message ? <span className="muted">{message}</span> : null}
       </div>
     </form>
   );

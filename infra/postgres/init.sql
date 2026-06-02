@@ -125,6 +125,27 @@ CREATE TABLE IF NOT EXISTS llm_usage_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS content_analytics_metrics (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  content_id TEXT NOT NULL REFERENCES content_items(id) ON DELETE CASCADE,
+  campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL,
+  views INTEGER NOT NULL DEFAULT 0,
+  likes INTEGER NOT NULL DEFAULT 0,
+  comments INTEGER NOT NULL DEFAULT 0,
+  shares INTEGER NOT NULL DEFAULT 0,
+  clicks INTEGER NOT NULL DEFAULT 0,
+  add_to_cart INTEGER NOT NULL DEFAULT 0,
+  orders INTEGER NOT NULL DEFAULT 0,
+  revenue DOUBLE PRECISION NOT NULL DEFAULT 0,
+  spend DOUBLE PRECISION NOT NULL DEFAULT 0,
+  roas DOUBLE PRECISION,
+  metric_date DATE NOT NULL,
+  raw_row JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS brand_memories (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -149,6 +170,10 @@ CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_agent_run_id ON llm_usage_logs(age
 CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_campaign_id ON llm_usage_logs(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_prompt_version_id ON llm_usage_logs(prompt_version_id);
 CREATE INDEX IF NOT EXISTS idx_llm_usage_logs_agent_name ON llm_usage_logs(agent_name);
+CREATE INDEX IF NOT EXISTS idx_content_analytics_content_id ON content_analytics_metrics(content_id);
+CREATE INDEX IF NOT EXISTS idx_content_analytics_campaign_id ON content_analytics_metrics(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_content_analytics_platform ON content_analytics_metrics(platform);
+CREATE INDEX IF NOT EXISTS idx_content_analytics_metric_date ON content_analytics_metrics(metric_date);
 CREATE INDEX IF NOT EXISTS idx_brand_memories_embedding ON brand_memories USING ivfflat (embedding vector_cosine_ops);
 
 INSERT INTO brands (id, name, slug, description, voice, compliance_notes)

@@ -211,3 +211,28 @@ class JobRead(APIModel):
     result_metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+
+class ContentExportResponse(APIModel):
+    content_id: str
+    status: str
+    exported: bool
+
+
+class AnalyticsImportResponse(APIModel):
+    imported: int
+
+
+class CampaignAnalyticsRead(APIModel):
+    campaign_id: str
+    platform: str
+    views: int
+    likes: int
+    comments: int
+    shares: int
+    clicks: int
+    add_to_cart: int
+    orders: int
+    revenue: float
+    spend: float
+    roas: float | None = None

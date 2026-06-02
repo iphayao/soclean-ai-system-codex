@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -191,3 +191,27 @@ class LLMUsageLog(Base):
     agent_run: Mapped[AgentRun | None] = relationship()
     campaign: Mapped[Campaign | None] = relationship()
     prompt_version: Mapped[PromptVersion | None] = relationship(back_populates="usage_logs")
+
+
+class ContentAnalyticsMetric(Base, TimestampMixin):
+    __tablename__ = "content_analytics_metrics"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    content_id: Mapped[str] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    platform: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    views: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    likes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    comments: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    shares: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    clicks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    add_to_cart: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    revenue: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    spend: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    roas: Mapped[float | None] = mapped_column(Float)
+    metric_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    raw_row: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    content: Mapped[ContentItem] = relationship()
+    campaign: Mapped[Campaign] = relationship()

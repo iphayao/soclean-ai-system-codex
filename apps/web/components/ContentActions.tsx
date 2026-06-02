@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Save, X } from "lucide-react";
+import { Check, Send, Save, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -85,6 +85,40 @@ export function ContentModerationActions({ content }: { content: ContentItem }) 
         <X size={16} aria-hidden="true" />
         Reject
       </button>
+    </div>
+  );
+}
+
+export function ContentExportButton({ content }: { content: ContentItem }) {
+  const router = useRouter();
+  const [isExporting, setIsExporting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function exportContent() {
+    setIsExporting(true);
+    setMessage(null);
+    try {
+      await api.exportContent(content.id);
+      setMessage("Exported to n8n.");
+      router.refresh();
+    } catch {
+      setMessage("Export failed. Content must be approved and n8n must be configured.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  if (content.status !== "approved") {
+    return null;
+  }
+
+  return (
+    <div className="actions">
+      <button type="button" className="secondary" onClick={exportContent} disabled={isExporting}>
+        <Send size={16} aria-hidden="true" />
+        {isExporting ? "Exporting" : "Export to n8n"}
+      </button>
+      {message ? <span className="muted">{message}</span> : null}
     </div>
   );
 }

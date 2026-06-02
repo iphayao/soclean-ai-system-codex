@@ -95,6 +95,21 @@ export type PerformanceMetric = {
   period_end: string | null;
 };
 
+export type CampaignAnalytics = {
+  campaign_id: string;
+  platform: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  clicks: number;
+  add_to_cart: number;
+  orders: number;
+  revenue: number;
+  spend: number;
+  roas: number | null;
+};
+
 export type GenerateContentResponse = {
   agent_run_id: string;
   campaign_id: string;
@@ -120,6 +135,16 @@ export type GenerateContentJobResponse = {
   job_id: string;
   campaign_id: string;
   status: GenerationJob["status"];
+};
+
+export type ContentExportResponse = {
+  content_id: string;
+  status: string;
+  exported: boolean;
+};
+
+export type AnalyticsImportResponse = {
+  imported: number;
 };
 
 export const API_BASE_URL =
@@ -167,6 +192,19 @@ async function safeGet<T>(path: string): Promise<T | null> {
   }
 }
 
+async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Upload failed: ${response.status} ${path}`);
+  }
+
+  return (await response.json()) as T;
+}
+
 export const api = {
   getBrands: () => safeList<Brand>("/api/brands"),
   getBrand: (id: string) => safeGet<Brand>(`/api/brands/${id}`),
@@ -192,11 +230,20 @@ export const api = {
   getContentItem: (id: string) => safeGet<ContentItem>(`/api/content-items/${id}`),
   updateContentItem: (id: string, body: Partial<ContentItem>) =>
     apiRequest<ContentItem>(`/api/content-items/${id}`, { method: "PATCH", body }),
+  exportContent: (id: string) =>
+    apiRequest<ContentExportResponse>(`/api/content/${id}/export`, { method: "POST", body: {} }),
 
   getApprovals: () => safeList<Approval>("/api/approvals"),
   createApproval: (body: Partial<Approval>) => apiRequest<Approval>("/api/approvals", { method: "POST", body }),
 
   getAgentRuns: () => safeList<AgentRun>("/api/agent-runs"),
+  importAnalyticsCsv: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return uploadFile<AnalyticsImportResponse>("/api/analytics/import-csv", formData);
+  },
+  getCampaignAnalytics: (campaignId: string) =>
+    safeList<CampaignAnalytics>(`/api/analytics/campaigns/${campaignId}`),
 };
 
 export function formatDate(value: string | null | undefined) {

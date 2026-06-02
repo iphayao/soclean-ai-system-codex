@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { api, campaignName, productName } from "@/app/lib/api";
-import { ContentEditForm, ContentModerationActions } from "@/components/ContentActions";
+import { ContentEditForm, ContentExportButton, ContentModerationActions } from "@/components/ContentActions";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,7 @@ export default async function ContentDetailPage({ params }: { params: Promise<{ 
           <h2 className="section-title">Content</h2>
           <p className="detail-body">{content.body ?? "No body saved."}</p>
           <ContentModerationActions content={content} />
+          <ContentExportButton content={content} />
         </div>
         <div className="card">
           <h2 className="section-title">Edit Content</h2>
